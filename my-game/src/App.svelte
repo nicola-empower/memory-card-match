@@ -16,15 +16,17 @@
 
   let cards = $state([]);
   let flippedCards = $state([]);
-  let isProcessing = $state(false);
+  let timeoutId = $state(null); // Track timeout for Fast Play cancellation
 
   // Stats
   let moves = $state(0);
-  let bestScore = $state(null); // Load from local storage
+  let bestScore = $state(null);
 
   function initGame() {
     // Reset stats
     moves = 0;
+    flippedCards = [];
+    if (timeoutId) clearTimeout(timeoutId);
 
     // Create pairs
     const deck = [...ICONS, ...ICONS].map((item, index) => ({
@@ -37,25 +39,33 @@
 
     // Shuffle
     cards = deck.sort(() => Math.random() - 0.5);
-    flippedCards = [];
-    isProcessing = false;
   }
 
   function handleCardClick(index) {
-    if (cards[index].isFlipped || cards[index].isMatched || isProcessing)
-      return;
+    // Ignore if already flipped or matched
+    if (cards[index].isFlipped || cards[index].isMatched) return;
 
+    // Fast Play: If 2 cards are already flipped (waiting for mismatch timeout), reset them immediately
+    if (flippedCards.length === 2) {
+      clearTimeout(timeoutId);
+      const [first, second] = flippedCards;
+      cards[first].isFlipped = false;
+      cards[second].isFlipped = false;
+      flippedCards = [];
+    }
+
+    // Flip the new card
     cards[index].isFlipped = true;
     flippedCards.push(index);
 
+    // Check for match if 2 cards are flipped
     if (flippedCards.length === 2) {
-      moves++; // Increment moves on every attempt
+      moves++;
       checkForMatch();
     }
   }
 
   function checkForMatch() {
-    isProcessing = true;
     const [firstIndex, secondIndex] = flippedCards;
     const firstCard = cards[firstIndex];
     const secondCard = cards[secondIndex];
@@ -65,25 +75,22 @@
       cards[firstIndex].isMatched = true;
       cards[secondIndex].isMatched = true;
       flippedCards = [];
-      isProcessing = false;
 
       // Check for Win
       if (cards.every((c) => c.isMatched)) {
         handleWin();
       }
     } else {
-      // No Match
-      setTimeout(() => {
+      // No Match - wait 1.5s then flip back (unless interrupted by Fast Play)
+      timeoutId = setTimeout(() => {
         cards[firstIndex].isFlipped = false;
         cards[secondIndex].isFlipped = false;
         flippedCards = [];
-        isProcessing = false;
       }, 1500);
     }
   }
 
   function handleWin() {
-    // Trigger Confetti
     confetti({
       particleCount: 150,
       spread: 70,
@@ -91,7 +98,6 @@
       colors: ["#22d3ee", "#c084fc", "#4ade80", "#f472b6"],
     });
 
-    // Update Best Score
     if (bestScore === null || moves < bestScore) {
       bestScore = moves;
       localStorage.setItem("memory-game-best-score", moves.toString());
@@ -99,10 +105,8 @@
   }
 
   onMount(() => {
-    // Load best score
     const savedScore = localStorage.getItem("memory-game-best-score");
     bestScore = savedScore ? parseInt(savedScore) : null;
-
     initGame();
   });
 </script>
@@ -202,11 +206,12 @@
 
 <style>
   main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between; /* Pushes footer to bottom */
     min-height: 100vh;
     padding: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .layout {
@@ -215,7 +220,7 @@
     align-items: flex-start;
     max-width: 1200px;
     width: 100%;
-    margin: 0 auto;
+    margin: auto 0; /* Centers layout vertically in remaining space */
   }
 
   .game-board {
