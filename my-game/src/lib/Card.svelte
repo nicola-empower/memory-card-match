@@ -32,6 +32,23 @@
     transition: transform 0.3s;
     transform-style: preserve-3d;
     will-change: transform;
+  }
+
+  .card.flipped .inner {
+    transform: rotateY(180deg);
+  }
+
+  @media (hover: hover) {
+    .card:hover .inner {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  .front,
+  .back {
+    position: absolute;
+    width: 100%;
     height: 100%;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
